@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة الأدمن</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    background: #0e1117;
+    color: #fff;
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .container { max-width: 600px; margin: 0 auto; }
+  h1 { color: #00c087; margin-bottom: 20px; font-size: 22px; text-align: center; }
+
+  .form-group {
+    background: #161b22;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #222;
+    margin-bottom: 12px;
+  }
+  label { display: block; color: #aaa; font-size: 13px; margin-bottom: 6px; }
+  input, select {
+    width: 100%;
+    padding: 12px;
+    background: #1e2329;
+    color: #fff;
+    border: 1px solid #333;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+  }
+  input:focus, select:focus { outline: none; border-color: #00c087; }
+  input[readonly] { color: #00c087; font-weight: bold; cursor: not-allowed; }
+
+  /* زر التفعيل */
+  .toggle-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #161b22;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #222;
+    margin-bottom: 12px;
+  }
+  .toggle-box .text { font-size: 14px; }
+  .toggle-box .text small { color: #888; display: block; margin-top: 4px; font-size: 12px; }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #333;
+    transition: .3s;
+    border-radius: 28px;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 20px; width: 20px;
+    left: 4px; bottom: 4px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+  }
+  input:checked + .slider { background-color: #00c087; }
+  input:checked + .slider:before { transform: translateX(22px); }
+
+  button {
+    width: 100%;
+    padding: 14px;
+    background: #00c087;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: 0.2s;
+  }
+  button:hover { background: #00a070; }
+
+  .preview {
+    background: #161b22;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #222;
+    margin-top: 20px;
+    font-size: 14px;
+    color: #ccc;
+  }
+  .preview h3 { color: #00c087; margin-bottom: 10px; font-size: 16px; }
+  .preview div {
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #1e2329;
+  }
+  .preview div:last-child { border-bottom: none; }
+  .preview span:first-child { color: #888; }
+  .preview span:last-child { color: #fff; font-weight: bold; }
+
+  .hidden { display: none !important; }
+
+  .footer {
+    text-align: center;
+    margin-top: 20px;
+    color: #555;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>⚙️ لوحة الأدمن</h1>
+
+  <div class="form-group">
+    <label>اسم العملة</label>
+    <input type="text" id="coinName" placeholder="مثال: lowkjelly" value="lowkjelly">
+  </div>
+
+  <div class="form-group">
+    <label>السعر الحالي ($)</label>
+    <input type="number" id="price" placeholder="0.0004636" value="0.0004636" step="any">
+  </div>
+
+  <!-- زر التفعيل -->
+  <div class="toggle-box">
+    <div class="text">
+      🔄 تفعيل النسبة التلقائي
+      <small>يحسب السعر المستهدف تلقائياً من نسبة الربح</small>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="autoToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="form-group">
+    <label>نسبة الربح (%)</label>
+    <input type="number" id="profit" placeholder="300" value="300" step="any">
+  </div>
+
+  <!-- حقل السعر المستهدف (يظهر فقط عند تفعيل التلقائي) -->
+  <div class="form-group hidden" id="targetGroup">
+    <label>🎯 السعر المستهدف (محسوب تلقائياً)</label>
+    <input type="text" id="targetPrice" readonly>
+  </div>
+
+  <div class="form-group">
+    <label>الحجم (Volume) $</label>
+    <input type="number" id="volume" placeholder="141520" value="141520" step="any">
+  </div>
+
+  <div class="form-group">
+    <label>السيولة (Liquidity) $</label>
+    <input type="number" id="liquidity" placeholder="59830" value="59830" step="any">
+  </div>
+
+  <div class="form-group">
+    <label>القيمة المخففة بالكامل $</label>
+    <input type="number" id="mcap" placeholder="463640" value="463640" step="any">
+  </div>
+
+  <div class="form-group">
+    <label>عنوان العقد (اختياري)</label>
+    <input type="text" id="address" placeholder="0x55...1582" value="0x55...1582">
+  </div>
+
+  <button onclick="saveData()">💾 حفظ وعرض الشارت</button>
+
+  <div class="preview" id="preview"></div>
+
+  <div class="footer">BITWAVE TRADE © 2025</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ربط الأحداث
+['coinName','price','profit','volume','liquidity','mcap','address'].forEach(id => {
+  $(id).addEventListener('input', updatePreview);
+});
+$('autoToggle').addEventListener('change', onToggleChange);
+
+// عند تفعيل/إلغاء الزر
+function onToggleChange() {
+  const auto = $('autoToggle').checked;
+  $('targetGroup').classList.toggle('hidden', !auto);
+  updatePreview();
+}
+
+// حساب السعر المستهدف
+function calcTarget() {
+  const price = parseFloat($('price').value) || 0;
+  const profit = parseFloat($('profit').value) || 0;
+  return price * (1 + profit / 100);
+}
+
+// تحديث المعاينة
+function updatePreview() {
+  const auto = $('autoToggle').checked;
+  const price = parseFloat($('price').value) || 0;
+  const profit = parseFloat($('profit').value) || 0;
+  const target = calcTarget();
+
+  if (auto) {
+    $('targetPrice').value = '$' + target.toFixed(8);
+  }
+
+  const volume = $('volume').value;
+  const liquidity = $('liquidity').value;
+  const mcap = $('mcap').value;
+
+  $('preview').innerHTML = `
+    <h3>📋 معاينة البيانات</h3>
+    <div><span>العملة</span> <span>${$('coinName').value}</span></div>
+    <div><span>السعر الحالي</span> <span>$${price}</span></div>
+    <div><span>نسبة الربح</span> <span>${profit}%</span></div>
+    ${auto ? `<div><span>🎯 السعر المستهدف</span> <span>$${target.toFixed(8)}</span></div>` : ''}
+    <div><span>الحجم</span> <span>$${Number(volume).toLocaleString()}</span></div>
+    <div><span>السيولة</span> <span>$${Number(liquidity).toLocaleString()}</span></div>
+    <div><span>القيمة المخففة</span> <span>$${Number(mcap).toLocaleString()}</span></div>
+    <div><span>العنوان</span> <span>${$('address').value || '-'}</span></div>
+  `;
+}
+
+// حفظ البيانات وفتح صفحة الشارت
+function saveData() {
+  const auto = $('autoToggle').checked;
+  const data = {
+    name: $('coinName').value,
+    price: $('price').value,
+    profit: $('profit').value,
+    volume: $('volume').value,
+    liquidity: $('liquidity').value,
+    mcap: $('mcap').value,
+    address: $('address').value,
+    autoTarget: auto,
+    targetPrice: auto ? calcTarget().toString() : ''
+  };
+
+  localStorage.setItem('chartData', JSON.stringify(data));
+  updatePreview();
+  window.open('chart.html', '_blank');
+}
+
+// تحميل البيانات المحفوظة عند فتح الصفحة
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('chartData');
+  if (saved) {
+    try {
+      const d = JSON.parse(saved);
+      $('coinName').value = d.name || '';
+      $('price').value = d.price || '';
+      $('profit').value = d.profit || '';
+      $('volume').value = d.volume || '';
+      $('liquidity').value = d.liquidity || '';
+      $('mcap').value = d.mcap || '';
+      $('address').value = d.address || '';
+      if (d.autoTarget) {
+        $('autoToggle').checked = true;
+        $('targetGroup').classList.remove('hidden');
+      }
+    } catch (e) {
+      console.warn('خطأ في تحميل البيانات:', e);
+    }
+  }
+  updatePreview();
+});
+</script>
+</body>
+</html>

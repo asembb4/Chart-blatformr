@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>صفحة الشارت</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    background: #0e1117;
+    color: #fff;
+    padding: 16px;
+    min-height: 100vh;
+  }
+  .container { max-width: 700px; margin: 0 auto; }
+
+  .coin-title {
+    background: #161b22;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #222;
+    margin-bottom: 12px;
+    text-align: right;
+  }
+  .coin-name { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
+  .coin-address { color: #888; font-size: 12px; }
+
+  .price-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .current-price { font-size: 28px; font-weight: bold; }
+  .profit-badge {
+    background: #00c087;
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .profit-badge.red { background: #ff4d4d; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .card {
+    background: #161b22;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #222;
+    text-align: center;
+  }
+  .card .label { color: #888; font-size: 12px; margin-bottom: 6px; }
+  .card .value { font-size: 16px; font-weight: bold; color: #fff; }
+
+  .timeframes {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    padding: 4px 0;
+  }
+  .timeframes button {
+    background: #1e2329;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .timeframes button.active {
+    background: #00c087;
+    color: #fff;
+    border-color: #00c087;
+  }
+
+  #chartWrap {
+    background: #161b22;
+    border-radius: 12px;
+    border: 1px solid #222;
+    padding: 10px;
+    margin-bottom: 16px;
+  }
+  canvas { width: 100%; height: auto; display: block; }
+
+  .bottom-buttons { display: flex; gap: 12px; margin-top: 16px; }
+  .btn-buy, .btn-sell {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #fff;
+  }
+  .btn-buy { background: #00c087; }
+  .btn-sell { background: #ff4d4d; }
+
+  .no-data { text-align: center; padding: 40px; color: #888; }
+  .no-data a { color: #00c087; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="container" id="content">
+  <div class="no-data">
+    لا توجد بيانات<br><br>
+    <a href="admin.html">← اذهب إلى لوحة الأدمن أولاً</a>
+  </div>
+</div>
+
+<script>
+let currentData = null;
+
+function fmt(n) {
+  n = Number(n) || 0;
+  if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return '$' + (n / 1e3).toFixed(2) + 'K';
+  return '$' + n.toFixed(2);
+}
+
+function buildPage(d) {
+  currentData = d;
+  const price = parseFloat(d.price) || 0;
+  const profit = parseFloat(d.profit) || 0;
+  const isProfit = profit >= 0;
+
+  document.getElementById('content').innerHTML = `
+    <div class="coin-title">
+      <div class="coin-name">${d.name}</div>
+      <div class="coin-address">${d.address || ''}</div>
+    </div>
+
+    <div class="price-section">
+      <div class="profit-badge ${isProfit ? '' : 'red'}">
+        ${isProfit ? '▲' : '▼'} ${profit}%
+      </div>
+      <div class="current-price">$${price}</div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="label">الحجم</div>
+        <div class="value">${fmt(d.volume)}</div>
+      </div>
+      <div class="card">
+        <div class="label">السيولة</div>
+        <div class="value">${fmt(d.liquidity)}</div>
+      </div>
+      <div class="card">
+        <div class="label">القيمة المخففة</div>
+        <div class="value">${fmt(d.mcap)}</div>
+      </div>
+    </div>
+
+    <div class="timeframes">
+      <button data-tf="1s">1 ثانية</button>
+      <button data-tf="1m">1 دقيقة</button>
+      <button class="active" data-tf="1h">1 ساعة</button>
+      <button data-tf="1d">1D</button>
+      <button data-tf="1w">أسبوع</button>
+    </div>
+
+    <div id="chartWrap">
+      <canvas id="chartCanvas" width="800" height="420"></canvas>
+    </div>
+
+    <div class="bottom-buttons">
+      <button class="btn-buy">🚀 تعزيز</button>
+      <button class="btn-sell">بيع</button>
+    </div>
+  `;
+
+  drawChart(price, profit, '1h');
+
+  document.querySelectorAll('.timeframes button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.timeframes button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      drawChart(price, profit, btn.dataset.tf);
+    });
+  });
+}
+
+// ===== العلامة المائية BITWAVE =====
+function drawWatermark(ctx, W, H) {
+  ctx.save();
+
+  const cx = W / 2;
+  const cy = H / 2;
+
+  ctx.globalAlpha = 0.07;
+  ctx.fillStyle = '#ffffff';
+
+  // شعار BITWAVE — مثلثين يشكلان حرف B/موجة
+  const logoSize = 55;
+  const logoX = cx - 130;
+  const logoY = cy;
+
+  // المثلث العلوي
+  ctx.beginPath();
+  ctx.moveTo(logoX - logoSize / 2, logoY + logoSize / 2);
+  ctx.lineTo(logoX, logoY - logoSize / 2);
+  ctx.lineTo(logoX, logoY + logoSize / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  // المثلث السفلي
+  ctx.beginPath();
+  ctx.moveTo(logoX, logoY + logoSize / 2);
+  ctx.lineTo(logoX + logoSize / 2, logoY - logoSize / 2);
+  ctx.lineTo(logoX + logoSize / 2, logoY + logoSize / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  // النص BITWAVE
+  ctx.font = 'bold 52px Arial';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('BITWAVE', logoX + logoSize / 2 + 12, logoY);
+
+  ctx.restore();
+}
+
+// ===== رسم الشارت =====
+function drawChart(price, profit, timeframe) {
+  const canvas = document.getElementById('chartCanvas');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  const padTop = 30, padBottom = 50, padLeft = 80, padRight = 40;
+
+  // خلفية
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#161b22';
+  ctx.fillRect(0, 0, W, H);
+
+  // العلامة المائية
+  drawWatermark(ctx, W, H);
+
+  // حساب السعر الابتدائي
+  const startPrice = price / (1 + profit / 100);
+  const target = price * (1 + profit / 100);
+
+  // نطاق السعر
+  let minP = Math.min(startPrice, price) * 0.7;
+  let maxP = Math.max(startPrice, price) * 1.15;
+
+  const yScale = (val) => padTop + (maxP - val) / (maxP - minP) * (H - padTop - padBottom);
+
+  // خطوط الشبكة الأفقية + الأسعار
+  ctx.strokeStyle = '#1e2329';
+  ctx.lineWidth = 1;
+  ctx.font = '11px Arial';
+  ctx.textAlign = 'right';
+
+  for (let i = 0; i <= 5; i++) {
+    const val = minP + (maxP - minP) * (i / 5);
+    const y = yScale(val);
+
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(W - padRight, y);
+    ctx.stroke();
+
+    const label = val < 0.001 ? val.toFixed(7) : val < 1 ? val.toFixed(5) : val.toFixed(2);
+    ctx.fillStyle = '#666';
+    ctx.fillText(label, W - padRight - 5, y - 3);
+  }
+
+  // ===== الشمعة الواحدة =====
+  const candleX = W * 0.35;
+  const candleWidth = W * 0.06;
+
+  const yOpen = yScale(startPrice);
+  const yClose = yScale(price);
+
+  const bodyTop = Math.min(yOpen, yClose);
+  const bodyHeight = Math.abs(yClose - yOpen);
+
+  // جسم الشمعة
+  ctx.fillStyle = '#00c087';
+  ctx.fillRect(candleX - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
+
+  // خط أفقي من قمة الشمعة
+  ctx.strokeStyle = '#00c087';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(candleX + candleWidth / 2, yClose);
+  ctx.lineTo(W - padRight - 100, yClose);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // رقم السعر الحالي بجانب الشمعة
+  ctx.fillStyle = '#00c087';
+  ctx.font = 'bold 12px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText(price, candleX + candleWidth / 2 + 6, yClose - 6);
+
+  // مستطيل السعر الحالي (يمين)
+  const priceBoxW = 80;
+  const priceBoxH = 24;
+  const priceBoxX = W - padRight - priceBoxW - 5;
+  const priceBoxY = yClose - priceBoxH / 2;
+
+  ctx.fillStyle = '#00c087';
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(priceBoxX, priceBoxY, priceBoxW, priceBoxH, 6);
+  } else {
+    ctx.rect(priceBoxX, priceBoxY, priceBoxW, priceBoxH);
+  }
+  ctx.fill();
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 12px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(price.toFixed(7), priceBoxX + priceBoxW / 2, priceBoxY + 16);
+
+  // السعر عند القاع (يسار الشمعة)
+  ctx.fillStyle = '#888';
+  ctx.font = '11px Arial';
+  ctx.textAlign = 'right';
+  ctx.fillText(startPrice.toFixed(7), candleX - candleWidth / 2 - 8, yOpen + 4);
+
+  // خط أفقي من قاعدة الشمعة
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(candleX + candleWidth / 2, yOpen);
+  ctx.lineTo(W - padRight - 100, yOpen);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // التاريخ أسفل الشمعة
+  ctx.fillStyle = '#666';
+  ctx.font = '11px Arial';
+  ctx.textAlign = 'center';
+  const today = new Date();
+  const dateStr = String(today.getDate()).padStart(2, '0') + '/' + String(today.getMonth() + 1).padStart(2, '0');
+  ctx.fillText(dateStr, candleX, H - 20);
+
+  // خط الهدف (لو التلقائي مفعّل)
+  if (currentData.autoTarget && profit !== 0) {
+    const yTarget = yScale(target);
+    ctx.strokeStyle = '#ffaa00';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(padLeft, yTarget);
+    ctx.lineTo(W - padRight, yTarget);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#ffaa00';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(`هدف +${profit}%`, padLeft + 5, yTarget - 6);
+  }
+}
+
+// تحميل البيانات
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('chartData');
+  if (saved) {
+    buildPage(JSON.parse(saved));
+  }
+});
+</script>
+</body>
+</html>
